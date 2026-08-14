@@ -67,7 +67,7 @@ export function buildAuditNarrative(input: {
     dek = `${businessName}'s website is down right now — ${websiteError || "unreachable"}. Every other finding in this report is secondary until that's fixed.`;
   } else if (reputation && reputation.score >= 70 && local && local.score < 50) {
     headline = { line1: "Better Reviewed.", line2: "Still Invisible." };
-    dek = `${businessName} has the reputation to win in ${city} — ${reviewCount ?? "a strong number of"} reviews at ${rating ?? "a high"}★ — but Google's map pack isn't showing you to nearby patients searching "${searchPhrase}."`;
+    dek = `${businessName} has the reputation to win in ${city} — ${reviewCount ?? "a strong number of"} reviews at ${rating ?? "a high"}★ — but isn't showing up when patients search "${searchPhrase}."`;
   } else if (local && verified && ownRank != null && ownRank <= 3) {
     headline = { line1: `Ranked #${ownRank}.`, line2: "Here's What Protects It." };
     dek = `${businessName} already ranks #${ownRank} for "${searchPhrase}." The fixes below are about defending that spot as nearby practices catch up, not chasing it.`;

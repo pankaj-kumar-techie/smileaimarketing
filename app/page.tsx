@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
+import PatientJourney from "@/components/PatientJourney";
 import SampleAuditPreview from "@/components/SampleAuditPreview";
 import HowItWorks from "@/components/HowItWorks";
 import TrustAndConsultation from "@/components/TrustAndConsultation";
@@ -51,6 +52,7 @@ export default function Home() {
       <Header />
       <main className="flex-1">
         <Hero />
+        <PatientJourney />
         <SampleAuditPreview />
         <HowItWorks />
         <TrustAndConsultation />

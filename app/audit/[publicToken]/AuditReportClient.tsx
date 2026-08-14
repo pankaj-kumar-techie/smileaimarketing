@@ -2,20 +2,41 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Eyebrow from "@/components/Eyebrow";
 import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
 import Button from "@/components/ui/Button";
-import { IconMapPin, IconCalendarCheck } from "@/components/icons";
+import StatusBadge, { statusFromScore, type StatusLevel } from "@/components/ui/StatusBadge";
+import { IconMapPin, IconCalendarCheck, IconSearch, IconStar, IconMonitor, IconPhoneWave, IconUsers } from "@/components/icons";
+
+// Same status→accent-color mapping as the landing page's sample preview —
+// used as a left-border "severity" indicator on each findings row, the way
+// a lab/chart report flags a line item at a glance.
+const STATUS_ACCENT: Record<StatusLevel, string> = {
+  healthy: "var(--color-status-healthy-fg)",
+  opportunity: "var(--color-status-opportunity-fg)",
+  attention: "var(--color-status-attention-fg)",
+};
 
 type Finding = {
   category: string;
   score: number;
   title: string;
   detail: string;
+  recommendation: string | null;
   findings: Record<string, unknown>;
 };
+
+// Same category → label/icon mapping as the landing page's sample preview
+// (components/SampleAuditPreview.tsx), so the real report matches what was promised.
+const CATEGORY_META: Record<string, { label: string; Icon: typeof IconSearch }> = {
+  LOCAL_VISIBILITY: { label: "Patient Discovery", Icon: IconSearch },
+  REPUTATION: { label: "Patient Trust", Icon: IconStar },
+  WEBSITE_QUALITY: { label: "Website Experience", Icon: IconMonitor },
+  CONVERSION: { label: "Booking Journey", Icon: IconPhoneWave },
+  COMPETITOR_GAP: { label: "Competitive Position", Icon: IconUsers },
+};
+const CATEGORY_ORDER = ["LOCAL_VISIBILITY", "REPUTATION", "WEBSITE_QUALITY", "CONVERSION", "COMPETITOR_GAP"];
 
 type Competitor = {
   name: string;
@@ -33,6 +54,7 @@ type Narrative = {
 
 type AuditData = {
   business: { name: string; website: string; city: string; opportunityScore: number };
+  checkedAt: string;
   summary: string | null;
   narrative: Narrative;
   scorecard: {
@@ -169,26 +191,62 @@ export default function AuditReportClient({ publicToken }: { publicToken: string
     );
   }
 
-  const { business, summary, narrative, scorecard, competitors } = data;
+  const { business, checkedAt, summary, narrative, findings, competitors } = data;
+
+  const orderedFindings = CATEGORY_ORDER
+    .map((cat) => findings.find((f) => f.category === cat))
+    .filter((f): f is Finding => Boolean(f));
+  const strongest = orderedFindings.length > 0
+    ? orderedFindings.reduce((a, b) => (a.score >= b.score ? a : b))
+    : null;
+  const biggestOpportunity = orderedFindings.length > 0
+    ? orderedFindings.reduce((a, b) => (a.score <= b.score ? a : b))
+    : null;
+  const checkedAtLabel = new Date(checkedAt).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const localFinding = findings.find((f) => f.category === "LOCAL_VISIBILITY");
+  const ownRank = localFinding?.findings.ownRank as number | null | undefined;
+  const rankVerified = Boolean(localFinding?.findings.verified);
+  const localScore = localFinding?.score ?? null;
 
   return (
-    <div className="min-h-screen bg-background pb-16 text-foreground">
-      {/* Header Banner — bold, two-line headline with a highlighted second line */}
-      <header className="border-b border-border bg-surface py-8 shadow-sm">
+    <div className="min-h-screen bg-background pb-24 text-foreground lg:pb-16">
+      {/* Header — a letterhead-style metadata row first, like a chart a dentist already knows how to read */}
+      <header className="border-b border-border bg-surface py-6 sm:py-8">
         <div className="mx-auto max-w-[1200px] px-6 sm:px-8">
-          <Eyebrow>For {business.name} — {business.city}</Eyebrow>
-          <h1 className="mt-3 text-display font-extrabold leading-[1.05] tracking-tight text-foreground">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5 border-b border-border pb-4 text-metadata">
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <span>
+                <span className="font-bold uppercase tracking-wider text-muted-foreground">Practice </span>
+                <span className="font-semibold text-foreground">{business.name}</span>
+              </span>
+              <span>
+                <span className="font-bold uppercase tracking-wider text-muted-foreground">Location </span>
+                <span className="font-semibold text-foreground">{business.city}</span>
+              </span>
+            </div>
+            <span>
+              <span className="font-bold uppercase tracking-wider text-muted-foreground">Checked </span>
+              <span className="font-semibold text-foreground">{checkedAtLabel}</span>
+            </span>
+          </div>
+
+          <h1 className="mt-5 text-display font-extrabold leading-[1.05] tracking-tight text-foreground">
             {narrative.headline.line1}
             <br />
             <span className="inline-block rounded-lg bg-primary px-2 text-primary-foreground">{narrative.headline.line2}</span>
           </h1>
-          <p className="mt-4 max-w-2xl text-body italic leading-relaxed text-muted-foreground">{narrative.dek}</p>
+          <p className="mt-3 max-w-2xl text-body leading-relaxed text-muted-foreground">{narrative.dek}</p>
 
           {/* By the numbers */}
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
             {narrative.stats.map((s) => (
-              <div key={s.label} className="rounded-2xl border border-border bg-background p-4">
-                <span className="block text-heading-2 font-extrabold text-primary">{s.value}</span>
+              <div key={s.label} className="rounded-xl border border-border bg-background p-3 sm:p-4">
+                <span className="block text-heading-3 font-extrabold text-primary sm:text-heading-2">{s.value}</span>
                 <span className="mt-1 block text-metadata font-bold uppercase tracking-wider text-foreground">{s.label}</span>
                 <span className="block text-[11px] text-muted-foreground">{s.caption}</span>
               </div>
@@ -200,23 +258,86 @@ export default function AuditReportClient({ publicToken }: { publicToken: string
       <main className="mx-auto mt-10 grid max-w-[1200px] gap-8 px-6 sm:px-8 lg:grid-cols-[63%_37%]">
         {/* Left Column */}
         <div className="space-y-8">
-          {/* Growth Summary — the real, plain-English synthesis of this audit */}
+          {/* Practice Assessment — the real, plain-English synthesis of this audit */}
           {summary && (
-            <div className="rounded-2xl border border-primary/20 bg-accent-soft p-6 shadow-sm">
-              <h2 className="text-heading-3 font-semibold text-foreground">Your growth summary</h2>
-              <p className="mt-3 text-body leading-relaxed text-foreground">{summary}</p>
-              <div className="mt-4 flex items-center gap-4 border-t border-primary/10 pt-4">
-                <span className="text-metadata font-bold uppercase tracking-wider text-muted-foreground">Opportunity Score</span>
-                <span className="text-heading-2 font-extrabold text-primary">
-                  {business.opportunityScore}<span className="text-body-small font-normal text-muted-foreground">/100</span>
+            <div
+              className="rounded-xl border border-border bg-surface p-6 shadow-sm"
+              style={{ borderLeftWidth: 4, borderLeftColor: "var(--color-primary)" }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-heading-3 font-semibold text-foreground">Practice Assessment</h2>
+                <span className="shrink-0 text-right">
+                  <span className="block text-heading-2 font-extrabold text-primary">
+                    {business.opportunityScore}<span className="text-body-small font-normal text-muted-foreground">/100</span>
+                  </span>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Opportunity</span>
                 </span>
+              </div>
+              <p className="mt-3 text-body leading-relaxed text-foreground">{summary}</p>
+
+              {strongest && biggestOpportunity && strongest.category !== biggestOpportunity.category && (
+                <p className="mt-4 border-t border-border pt-4 text-body-small text-muted-foreground">
+                  <span className="font-bold text-foreground">Strongest: </span>
+                  {CATEGORY_META[strongest.category]?.label ?? strongest.category}
+                  <span className="mx-2 text-border">·</span>
+                  <span className="font-bold text-foreground">Biggest opportunity: </span>
+                  {CATEGORY_META[biggestOpportunity.category]?.label ?? biggestOpportunity.category}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Findings by Area — the real per-category findings, same 5-area model as the sample preview */}
+          {orderedFindings.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="px-1 text-heading-3 font-semibold text-foreground">Findings by area</h2>
+              <div className="space-y-3">
+                {orderedFindings.map((f) => {
+                  const meta = CATEGORY_META[f.category];
+                  const Icon = meta?.Icon ?? IconMapPin;
+                  const status = statusFromScore(f.score);
+                  return (
+                    <div
+                      key={f.category}
+                      className="rounded-xl border border-border bg-surface p-5 shadow-sm"
+                      style={{ borderLeftWidth: 4, borderLeftColor: STATUS_ACCENT[status] }}
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-primary">
+                          <Icon className="h-4.5 w-4.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                            <div>
+                              <p className="text-body font-semibold text-foreground">{meta?.label ?? f.category}</p>
+                              <p className="text-metadata text-muted-foreground">{f.title}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="text-body font-bold text-foreground">
+                                {f.score}<span className="text-metadata font-normal text-muted-foreground">/100</span>
+                              </span>
+                              <StatusBadge status={status} />
+                            </div>
+                          </div>
+                          <p className="mt-2.5 text-body-small leading-relaxed text-foreground">{f.detail}</p>
+                          {f.recommendation && (
+                            <p className="mt-2.5 border-t border-border pt-2.5 text-body-small leading-relaxed text-muted-foreground">
+                              <span className="font-bold text-foreground">Recommendation — </span>
+                              {f.recommendation}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Fixes — only real, verified issues, each with a plain-language impact range */}
           <div className="space-y-4">
-            <h2 className="px-1 text-heading-3 font-semibold text-foreground">What to fix, in order of impact</h2>
+            <h2 className="px-1 text-heading-3 font-semibold text-foreground">Top priorities</h2>
             {narrative.fixCards.length === 0 ? (
               <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
                 <p className="text-body-small leading-relaxed text-muted-foreground">
@@ -242,7 +363,7 @@ export default function AuditReportClient({ publicToken }: { publicToken: string
           {/* Quiet leaks — secondary issues worth knowing about */}
           {narrative.quietLeaks.length > 0 && (
             <div className="rounded-2xl border border-border bg-surface-muted/30 p-6">
-              <h2 className="text-heading-3 font-semibold text-foreground">A couple more things we noticed</h2>
+              <h2 className="text-heading-3 font-semibold text-foreground">Also noted</h2>
               <div className="mt-4 space-y-3">
                 {narrative.quietLeaks.map((q) => (
                   <div key={q.title} className="border-l-2 border-primary/40 pl-4">
@@ -254,55 +375,49 @@ export default function AuditReportClient({ publicToken }: { publicToken: string
             </div>
           )}
 
-          {/* Full scorecard — tucked away since the fixes above already say what matters */}
-          <details className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-            <summary className="cursor-pointer text-heading-3 font-semibold text-foreground">See the full scorecard</summary>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-center sm:grid-cols-5">
-              {[
-                { label: "Local Maps", value: scorecard.localVisibility, max: 100 },
-                { label: "Web Quality", value: scorecard.websiteQuality, max: 100 },
-                { label: "Conversion", value: scorecard.conversionExperience, max: 100 },
-                { label: "Reviews", value: scorecard.reviewsReputation, max: 100 },
-                { label: "Competitor Gap", value: scorecard.competitorGap, max: 100 },
-              ].map((item) => (
-                <div key={item.label} className="rounded-xl border border-border bg-background p-3">
-                  <span className="mb-1 block text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
-                    {item.label}
-                  </span>
-                  <span className="text-heading-3 font-bold text-primary">
-                    {item.value}
-                    <span className="text-body-small font-normal text-muted-foreground">/{item.max}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </details>
-
           {/* Competitor Gap Panel */}
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
             <h2 className="text-heading-3 font-semibold text-foreground">Who&apos;s winning the patients you&apos;re missing</h2>
             <p className="mt-1 mb-6 text-body-small text-muted-foreground">
-              A side-by-side look at you against the practice currently ranking ahead of you in {business.city}.
+              Your local search strength vs. nearby practices in {business.city}.
             </p>
 
-            <div className="space-y-1">
-              <div className="grid grid-cols-3 gap-2 border-b border-border pb-2 text-metadata font-bold uppercase tracking-wider text-muted-foreground">
-                <span>Practice</span>
-                <span className="text-center">Search Rank</span>
-                <span className="text-right">Map Score</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 py-2.5 text-body-small font-semibold">
-                <span className="truncate text-primary">{business.name} (You)</span>
-                <span className="text-center text-muted-foreground">&mdash;</span>
-                <span className="text-right text-muted-foreground">{business.opportunityScore}</span>
+            <div className="space-y-2.5">
+              <div className="rounded-xl border border-primary/30 bg-accent-soft/50 p-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-metadata font-bold text-primary-foreground">
+                      {rankVerified && ownRank != null ? `#${ownRank}` : "You"}
+                    </span>
+                    <span className="truncate text-body-small font-bold text-foreground">{business.name}</span>
+                  </div>
+                  <span className="shrink-0 text-body-small font-bold text-primary">
+                    {localScore != null ? `${localScore}/100` : "—"}
+                  </span>
+                </div>
+                {localScore != null && (
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${localScore}%` }} />
+                  </div>
+                )}
               </div>
 
               {competitors.map((c, index) => (
-                <div key={index} className="grid grid-cols-3 gap-2 border-t border-border/60 py-2.5 text-body-small">
-                  <span className="truncate font-medium text-foreground">{c.name}</span>
-                  <span className="text-center text-muted-foreground">#{c.rank}</span>
-                  <span className="text-right text-muted-foreground">{c.mapScore ?? "N/A"}</span>
+                <div key={index} className="rounded-xl border border-border p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-metadata font-bold text-muted-foreground">
+                        #{c.rank}
+                      </span>
+                      <span className="truncate text-body-small font-medium text-foreground">{c.name}</span>
+                    </div>
+                    {c.mapScore != null && (
+                      <span className="flex shrink-0 items-center gap-1 text-body-small font-semibold text-muted-foreground">
+                        <IconStar className="h-3.5 w-3.5" />
+                        {c.mapScore}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -316,7 +431,7 @@ export default function AuditReportClient({ publicToken }: { publicToken: string
         </div>
 
         {/* Right Column: Consultation actions */}
-        <div className="space-y-8">
+        <div id="consultation" className="scroll-mt-6 space-y-8">
           {/* Online consultation */}
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
             <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-primary">
@@ -422,6 +537,17 @@ export default function AuditReportClient({ publicToken }: { publicToken: string
           </div>
         </div>
       </main>
+
+      {/* Mobile sticky CTA — the consultation forms sit at the bottom of a long report;
+          give mobile readers a fast path without reordering the report itself. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 p-3 backdrop-blur-sm lg:hidden">
+        <a
+          href="#consultation"
+          className="flex h-12 items-center justify-center rounded-full bg-primary text-body-small font-bold text-primary-foreground transition-colors hover:bg-primary-hover"
+        >
+          Talk To Us About This Report
+        </a>
+      </div>
     </div>
   );
 }

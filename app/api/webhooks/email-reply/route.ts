@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env.server";
-import { logEngagementEvent } from "@/lib/events";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * Generic inbound-reply webhook. Point your email provider's inbound-parse /
@@ -55,8 +55,8 @@ export async function POST(request: Request) {
       data: { status: "REPLIED" },
     });
 
-    await logEngagementEvent({
-      eventType: "email_replied",
+    await trackEvent({
+      eventName: "email_replied",
       emailMessageId: message.id,
       businessId: message.contact.businessId,
     });

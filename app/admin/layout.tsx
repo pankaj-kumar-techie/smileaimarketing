@@ -16,6 +16,7 @@ import {
   IconSearch,
   IconCheck,
   IconChevronDown,
+  IconMonitor,
 } from "@/components/icons";
 
 const PRIMARY_NAV_ITEMS = [
@@ -30,6 +31,7 @@ const MORE_NAV_ITEMS = [
   { label: "Outreach", path: "/admin/outreach", Icon: IconChat, mdOnly: true },
   { label: "Audits", path: "/admin/audits", Icon: IconTarget },
   { label: "Pipeline", path: "/admin/pipeline", Icon: IconTrendingUp },
+  { label: "Analytics", path: "/admin/analytics", Icon: IconMonitor },
   { label: "Integrations", path: "/admin/integrations", Icon: IconCheck },
   { label: "Automations", path: "/admin/automations", Icon: IconSettings },
   { label: "Settings", path: "/admin/settings", Icon: IconSettings },
@@ -51,6 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/meetings": "Meetings",
   "/admin/appointments": "Meetings",
   "/admin/pipeline": "Pipeline",
+  "/admin/analytics": "Analytics",
   "/admin/integrations": "Integrations",
   "/admin/automations": "Automations",
   "/admin/settings": "Settings",

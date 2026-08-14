@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
 import { z } from "zod";
+import { trackEvent } from "@/lib/analytics";
 
 const approveSchema = z.object({
   action: z.literal("approve"),
@@ -64,6 +65,12 @@ export async function PATCH(
           type: "MEETING",
           content: `In-person visit approved for ${updated.scheduledTime.toISOString()}.`,
         },
+      });
+
+      await trackEvent({
+        eventName: "meeting_confirmed",
+        businessId: appointment.businessId,
+        properties: { type: "in_person", appointment_id: updated.id },
       });
 
       return NextResponse.json({ appointment: updated });

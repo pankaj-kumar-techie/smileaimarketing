@@ -1,7 +1,7 @@
 "use client";
 
 import { IconSearch, IconStar, IconMonitor, IconPhoneWave, IconUsers } from "@/components/icons";
-import StatusBadge, { type StatusLevel } from "@/components/ui/StatusBadge";
+import StatusBadge, { type StatusLevel, statusFromScore } from "@/components/ui/StatusBadge";
 import { Reveal, RevealGroup, revealItem, motion } from "@/components/ui/Reveal";
 
 const BAR_COLOR: Record<StatusLevel, string> = {
@@ -14,35 +14,30 @@ const CATEGORIES: {
   Icon: typeof IconSearch;
   label: string;
   score: number;
-  status: StatusLevel;
   explanation: string;
 }[] = [
   {
     Icon: IconSearch,
     label: "Patient Discovery",
     score: 42,
-    status: "attention",
     explanation: "Patients searching nearby aren't seeing your practice as often as they should.",
   },
   {
     Icon: IconStar,
     label: "Patient Trust",
     score: 78,
-    status: "healthy",
     explanation: "Your reviews and reputation are already working in your favor.",
   },
   {
     Icon: IconMonitor,
     label: "Website Experience",
     score: 61,
-    status: "opportunity",
     explanation: "Your site is slower and harder to use on mobile than nearby competitors.",
   },
   {
     Icon: IconPhoneWave,
     label: "Booking Journey",
     score: 54,
-    status: "opportunity",
     explanation: "It takes a few extra steps before a patient can request an appointment.",
   },
 ];
@@ -87,7 +82,9 @@ export default function SampleAuditPreview() {
 
           {/* Category rows */}
           <RevealGroup className="divide-y divide-border" stagger={0.08}>
-            {CATEGORIES.map((c) => (
+            {CATEGORIES.map((c) => {
+              const status = statusFromScore(c.score);
+              return (
               <motion.div
                 key={c.label}
                 variants={revealItem}
@@ -105,12 +102,12 @@ export default function SampleAuditPreview() {
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-body font-bold text-foreground">{c.score}<span className="text-muted-foreground"> / 100</span></span>
-                    <StatusBadge status={c.status} />
+                    <StatusBadge status={status} />
                   </div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
                     <motion.div
                       className="h-full rounded-full"
-                      style={{ backgroundColor: BAR_COLOR[c.status] }}
+                      style={{ backgroundColor: BAR_COLOR[status] }}
                       initial={{ width: 0 }}
                       whileInView={{ width: `${c.score}%` }}
                       viewport={{ once: true, margin: "-80px" }}
@@ -119,7 +116,8 @@ export default function SampleAuditPreview() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
 
             {/* Competitive position - qualitative, no score */}
             <motion.div

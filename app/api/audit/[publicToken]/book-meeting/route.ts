@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { logEngagementEvent } from "@/lib/events";
+import { trackEvent } from "@/lib/analytics";
 import { createGoogleMeetEvent } from "@/lib/googleCalendar";
 
 const bookSchema = z.object({
@@ -58,10 +58,11 @@ export async function POST(
       },
     });
 
-    await logEngagementEvent({
-      eventType: "BOOKING_REQUESTED",
+    await trackEvent({
+      eventName: "booking_confirmed",
       businessId: business.id,
       auditId: audit.id,
+      properties: { type: "online", appointment_id: appointment.id },
     });
 
     // Update business status

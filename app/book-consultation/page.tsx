@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Eyebrow from "@/components/Eyebrow";
@@ -8,12 +8,25 @@ import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
 import Button from "@/components/ui/Button";
+import { trackEvent } from "@/lib/analytics.client";
 
 function BookConsultationForm() {
   const searchParams = useSearchParams();
   const isInPerson = searchParams.get("type") === "in-person";
+  const consultationType = isInPerson ? "in_person" : "online";
   const publicToken = searchParams.get("publicToken");
   const router = useRouter();
+  const hasStartedBooking = useRef(false);
+
+  useEffect(() => {
+    trackEvent("consultation_view", { type: consultationType });
+  }, [consultationType]);
+
+  const handleBookingStart = () => {
+    if (hasStartedBooking.current) return;
+    hasStartedBooking.current = true;
+    trackEvent("booking_start", { type: consultationType });
+  };
 
   // Cold-start fields — only needed when there's no existing audit to attach this booking to.
   const [website, setWebsite] = useState("");
@@ -58,6 +71,7 @@ function BookConsultationForm() {
       setError("Please pick a date and time");
       return;
     }
+    trackEvent("booking_submit", { type: consultationType });
     submitting.current = true;
     setLoading(true);
     setError("");
@@ -148,7 +162,7 @@ function BookConsultationForm() {
         </div>
       )}
 
-      <form onSubmit={handleBooking} className="mt-8 space-y-4" noValidate>
+      <form onSubmit={handleBooking} onChange={handleBookingStart} className="mt-8 space-y-4" noValidate>
         {!publicToken && (
           <>
             <FormField id="website" label="Clinic Website" required optionalLabel={false}>

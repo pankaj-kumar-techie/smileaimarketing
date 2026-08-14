@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateLightAuditPdf } from "@/lib/pdfGenerator";
-import { logEngagementEvent } from "@/lib/events";
+import { trackEvent } from "@/lib/analytics";
 import fs from "fs/promises";
 import path from "path";
 
@@ -60,12 +60,7 @@ export async function GET(
       });
     }
 
-    // Log engagement event
-    await logEngagementEvent({
-      eventType: "PDF_DOWNLOAD",
-      businessId: audit.businessId,
-      auditId: audit.id,
-    });
+    await trackEvent({ eventName: "pdf_download", businessId: audit.businessId, auditId: audit.id });
 
     // Stream file contents directly with proper headers
     const filePath = path.join(process.cwd(), "public", pdfRelativeUrl);

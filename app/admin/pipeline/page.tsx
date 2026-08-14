@@ -18,16 +18,18 @@ type Business = {
   audits?: { id: string }[];
 };
 
+// Values must match the Prisma BusinessStatus enum exactly (prisma/schema.prisma) —
+// any value here that isn't a real enum member makes its column permanently
+// empty and its status-change actions fail server-side.
 const STAGES = [
   { label: "Discovered", value: "DISCOVERED", color: "text-muted-foreground" },
-  { label: "Verified", value: "VERIFIED", color: "text-indigo-400" },
+  { label: "Qualified", value: "QUALIFIED", color: "text-indigo-400" },
+  { label: "Auditing", value: "AUDITING", color: "text-cyan-400" },
   { label: "Audited", value: "AUDITED", color: "text-sky-400" },
   { label: "Pending Approval", value: "OUTREACH_PENDING", color: "text-orange-400" },
   { label: "Contacted", value: "OUTREACH_ACTIVE", color: "text-amber-400" },
-  { label: "Engaged", value: "ENGAGED", color: "text-emerald-400" },
-  { label: "Meeting Requested", value: "MEETING_REQUESTED", color: "text-indigo-400" },
   { label: "Won", value: "CONVERTED", color: "text-emerald-400" },
-  { label: "Lost", value: "LOST", color: "text-rose-400" },
+  { label: "Disqualified", value: "DISQUALIFIED", color: "text-rose-400" },
 ];
 
 export default function AdminPipelinePage() {
@@ -71,6 +73,36 @@ export default function AdminPipelinePage() {
     }
   };
 
+  const handleMarkWon = async (id: string) => {
+    setActionMessage("");
+    const dealValueInput = window.prompt("Deal value in dollars (leave blank to skip):");
+    if (dealValueInput === null) return;
+
+    const dollars = dealValueInput.trim() ? Number(dealValueInput.trim()) : undefined;
+    if (dollars !== undefined && (Number.isNaN(dollars) || dollars < 0)) {
+      setActionMessage("Deal value must be a positive number");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CONVERTED",
+          markWon: true,
+          ...(dollars !== undefined ? { dealValueCents: Math.round(dollars * 100) } : {}),
+        }),
+      });
+      if (res.ok) {
+        setActionMessage("Marked as won");
+        await fetchPipeline();
+      }
+    } catch (err) {
+      console.error("Mark won error:", err);
+    }
+  };
+
   const cities = Array.from(new Set(businesses.map((b) => b.city).filter(Boolean)));
 
   const filteredBusinesses = businesses.filter((b) => {
@@ -83,13 +115,14 @@ export default function AdminPipelinePage() {
   });
 
   const getNextRecommendedAction = (b: Business) => {
-    if (b.status === "DISCOVERED") return "Verify Practice";
-    if (b.status === "VERIFIED") return "Run Audit";
+    if (b.status === "DISCOVERED") return "Qualify Lead";
+    if (b.status === "QUALIFIED") return "Run Audit";
+    if (b.status === "AUDITING") return "Awaiting Audit Results";
     if (b.status === "AUDITED") return "Find Contact";
     if (b.status === "OUTREACH_PENDING") return "Review & Approve Email";
     if (b.status === "OUTREACH_ACTIVE") return "Awaiting Reply";
-    if (b.status === "ENGAGED" || b.status === "MEETING_REQUESTED") return "Schedule Visit";
     if (b.status === "CONVERTED") return "Onboard Practice";
+    if (b.status === "DISQUALIFIED") return "Archived";
     return "Re-engage Lead";
   };
 
@@ -176,7 +209,7 @@ export default function AdminPipelinePage() {
               ) : (
                 <div className="space-y-3">
                   {list.map((b) => (
-                    <PipelineCard key={b.id} business={b} nextAction={getNextRecommendedAction(b)} onUpdateStatus={handleUpdateStatus} />
+                    <PipelineCard key={b.id} business={b} nextAction={getNextRecommendedAction(b)} onUpdateStatus={handleUpdateStatus} onMarkWon={handleMarkWon} />
                   ))}
                 </div>
               )}
@@ -207,7 +240,7 @@ export default function AdminPipelinePage() {
                     <EmptyState title="Stage empty" compact />
                   ) : (
                     list.map((b) => (
-                      <PipelineCard key={b.id} business={b} nextAction={getNextRecommendedAction(b)} onUpdateStatus={handleUpdateStatus} />
+                      <PipelineCard key={b.id} business={b} nextAction={getNextRecommendedAction(b)} onUpdateStatus={handleUpdateStatus} onMarkWon={handleMarkWon} />
                     ))
                   )}
                 </div>
@@ -224,12 +257,14 @@ function PipelineCard({
   business,
   nextAction,
   onUpdateStatus,
+  onMarkWon,
 }: {
   business: Business;
   nextAction: string;
   onUpdateStatus: (id: string, newStatus: string) => Promise<void>;
+  onMarkWon: (id: string) => Promise<void>;
 }) {
-  const isLateStage = ["ENGAGED", "MEETING_REQUESTED", "MEETING_CONFIRMED"].includes(business.status);
+  const isLateStage = business.status === "OUTREACH_ACTIVE";
 
   return (
     <div className="rounded-lg border border-border/90 bg-background p-3 shadow-xs transition-colors hover:border-primary/40">
@@ -255,7 +290,7 @@ function PipelineCard({
           {/* Show direct Mark Won ONLY on late stages */}
           {isLateStage && business.status !== "CONVERTED" && (
             <button
-              onClick={() => void onUpdateStatus(business.id, "CONVERTED")}
+              onClick={() => void onMarkWon(business.id)}
               className="inline-flex h-7 items-center rounded-md bg-emerald-500/10 px-2 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20"
             >
               Won
@@ -265,11 +300,11 @@ function PipelineCard({
           <ActionMenu
             items={[
               { label: "View Details", onClick: () => (window.location.href = `/admin/businesses/${business.id}`) },
-              { label: "Move to Verified", onClick: () => void onUpdateStatus(business.id, "VERIFIED") },
+              { label: "Mark Qualified", onClick: () => void onUpdateStatus(business.id, "QUALIFIED") },
               { label: "Move to Audited", onClick: () => void onUpdateStatus(business.id, "AUDITED") },
               { label: "Move to Contacted", onClick: () => void onUpdateStatus(business.id, "OUTREACH_ACTIVE") },
-              { label: "Mark Won", variant: "success", onClick: () => void onUpdateStatus(business.id, "CONVERTED") },
-              { label: "Mark Lost", variant: "danger", onClick: () => void onUpdateStatus(business.id, "LOST") },
+              { label: "Mark Won", variant: "success", onClick: () => void onMarkWon(business.id) },
+              { label: "Mark Disqualified", variant: "danger", onClick: () => void onUpdateStatus(business.id, "DISQUALIFIED") },
             ]}
           />
         </div>

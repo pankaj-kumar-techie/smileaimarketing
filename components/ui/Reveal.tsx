@@ -55,12 +55,13 @@ export function RevealGroup({ children, className, stagger = 0.12 }: RevealGroup
 
 type AnimatedCounterProps = {
   value: number;
+  prefix?: string;
   suffix?: string;
   className?: string;
 };
 
 /** Counts up to `value` once it scrolls into view. */
-export function AnimatedCounter({ value, suffix = "", className }: AnimatedCounterProps) {
+export function AnimatedCounter({ value, prefix = "", suffix = "", className }: AnimatedCounterProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
   const motionValue = useMotionValue(0);
@@ -80,6 +81,7 @@ export function AnimatedCounter({ value, suffix = "", className }: AnimatedCount
 
   return (
     <span ref={ref} className={className}>
+      {prefix}
       {display}
       {suffix}
     </span>

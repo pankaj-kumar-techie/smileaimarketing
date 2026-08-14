@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
 import { outreachQueue } from "@/lib/queue";
+import { trackEvent } from "@/lib/analytics";
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
         where: { id: { in: businessIds }, status: "OUTREACH_PENDING" },
         data: { status: "OUTREACH_ACTIVE" },
       });
+      await Promise.all(
+        businessIds.map((businessId) => trackEvent({ eventName: "outreach_approved", businessId }))
+      );
     }
 
     return NextResponse.json({ success: true, count: queued.length });

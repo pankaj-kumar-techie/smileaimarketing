@@ -1,6 +1,7 @@
 import nodemailer, { Transporter } from "nodemailer";
 import { prisma } from "./prisma";
 import { env, integrationStatus } from "./env.server";
+import { trackEvent } from "./analytics";
 
 export interface SendEmailParams {
   emailMessageId?: string;
@@ -94,13 +95,20 @@ export async function sendOutreachEmail(params: SendEmailParams): Promise<EmailD
     }
 
     if (params.emailMessageId) {
-      await prisma.emailMessage.update({
+      const sentMessage = await prisma.emailMessage.update({
         where: { id: params.emailMessageId },
         data: {
           status: "SENT",
           sentAt: new Date(),
           messageId,
         },
+        include: { step: { select: { stepDay: true } }, contact: { select: { businessId: true } } },
+      });
+      await trackEvent({
+        eventName: "email_sent",
+        businessId: sentMessage.contact.businessId,
+        emailMessageId: sentMessage.id,
+        properties: { step_day: sentMessage.step.stepDay },
       });
     }
 

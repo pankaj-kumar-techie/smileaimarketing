@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
-import { logEngagementEvent } from "@/lib/events";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * Manual fallback for reply tracking: until a real ESP inbound-parse webhook
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
       include: { contact: { include: { business: true } } },
     });
 
-    await logEngagementEvent({
-      eventType: "email_replied",
+    await trackEvent({
+      eventName: "email_replied",
       emailMessageId: message.id,
       businessId: message.contact.businessId,
     });

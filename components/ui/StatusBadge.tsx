@@ -1,5 +1,12 @@
 export type StatusLevel = "healthy" | "opportunity" | "attention";
 
+/** Single source of truth for what counts as healthy/opportunity/attention across the site. */
+export function statusFromScore(score: number): StatusLevel {
+  if (score >= 70) return "healthy";
+  if (score >= 50) return "opportunity";
+  return "attention";
+}
+
 const STATUS_LABEL: Record<StatusLevel, string> = {
   healthy: "Healthy",
   opportunity: "Opportunity",

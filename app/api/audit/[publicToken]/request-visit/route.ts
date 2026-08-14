@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { trackEvent } from "@/lib/analytics";
 
 const visitSchema = z.object({
   address: z.string().min(5),
@@ -72,6 +73,13 @@ export async function POST(
         type: "MEETING",
         content: `Offline clinic drop-off visit requested for ${address} during ${preferredWindow}.`,
       },
+    });
+
+    await trackEvent({
+      eventName: "meeting_requested",
+      businessId: business.id,
+      auditId: audit.id,
+      properties: { type: "in_person" },
     });
 
     return NextResponse.json({

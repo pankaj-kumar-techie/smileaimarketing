@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
+import { trackEvent } from "@/lib/analytics.client";
 
 export default function FinalCTA() {
   const router = useRouter();
@@ -15,6 +16,13 @@ export default function FinalCTA() {
   const [websiteError, setWebsiteError] = useState("");
   const [cityError, setCityError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasStartedForm = useRef(false);
+
+  const handleFormStart = () => {
+    if (hasStartedForm.current) return;
+    hasStartedForm.current = true;
+    trackEvent("audit_form_start", { form_location: "final_cta" });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +47,7 @@ export default function FinalCTA() {
 
     if (!isValid) return;
 
+    trackEvent("audit_form_submit", { form_location: "final_cta" });
     setIsSubmitting(true);
     let normalizedWebsite = trimmedWebsite.toLowerCase();
     if (!/^https?:\/\//i.test(normalizedWebsite)) {
@@ -82,7 +91,10 @@ export default function FinalCTA() {
                   autoCorrect="off"
                   inputMode="url"
                   value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
+                  onChange={(e) => {
+                    handleFormStart();
+                    setWebsite(e.target.value);
+                  }}
                   placeholder="clinic.com"
                   hasError={!!websiteError}
                 />
@@ -95,7 +107,10 @@ export default function FinalCTA() {
                   disabled={isSubmitting}
                   autoComplete="address-level2"
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={(e) => {
+                    handleFormStart();
+                    setCity(e.target.value);
+                  }}
                   placeholder="Toronto"
                   hasError={!!cityError}
                 />

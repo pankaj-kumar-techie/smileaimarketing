@@ -35,6 +35,11 @@ type BusinessDetail = {
   category: string;
   status: string;
   opportunityScore: number;
+  dealValueCents: number | null;
+  wonAt: string | null;
+  firstTouchSource: string | null;
+  firstTouchMedium: string | null;
+  firstTouchCampaign: string | null;
   providerSource: string | null;
   rating: number | null;
   reviewCount: number | null;
@@ -129,6 +134,39 @@ export default function AdminBusinessDetailPage({ params }: { params: Promise<{ 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update practice status");
       setActionMessage(`Practice status updated to ${newStatus}`);
+      await fetchDetail();
+    } catch (err: unknown) {
+      setActionMessage(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleMarkWon = async () => {
+    const dealValueInput = window.prompt("Deal value in dollars (leave blank to skip):");
+    if (dealValueInput === null) return; // user cancelled
+
+    const dollars = dealValueInput.trim() ? Number(dealValueInput.trim()) : undefined;
+    if (dollars !== undefined && (Number.isNaN(dollars) || dollars < 0)) {
+      setActionMessage("Deal value must be a positive number");
+      return;
+    }
+
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CONVERTED",
+          markWon: true,
+          ...(dollars !== undefined ? { dealValueCents: Math.round(dollars * 100) } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark this lead won");
+      setActionMessage("Marked as won");
       await fetchDetail();
     } catch (err: unknown) {
       setActionMessage(err instanceof Error ? err.message : "Update failed");
@@ -243,7 +281,19 @@ export default function AdminBusinessDetailPage({ params }: { params: Promise<{ 
             <span className="rounded-full bg-primary/15 px-3 py-1 text-metadata font-bold uppercase tracking-wider text-primary">
               {business.status.replace(/_/g, " ")}
             </span>
+            {business.wonAt && (
+              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-metadata font-bold uppercase tracking-wider text-emerald-400">
+                Won{business.dealValueCents ? ` · $${(business.dealValueCents / 100).toLocaleString()}` : ""}
+              </span>
+            )}
           </div>
+          {(business.firstTouchSource || business.firstTouchCampaign) && (
+            <p className="mt-1 text-metadata text-muted-foreground">
+              Acquired via {business.firstTouchSource || "direct"}
+              {business.firstTouchMedium ? ` / ${business.firstTouchMedium}` : ""}
+              {business.firstTouchCampaign ? ` — campaign "${business.firstTouchCampaign}"` : ""}
+            </p>
+          )}
           <p className="mt-1 text-body-small text-muted-foreground">
             <a href={business.website} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline">
               {business.website.replace(/^https?:\/\//, "")}
@@ -270,11 +320,11 @@ export default function AdminBusinessDetailPage({ params }: { params: Promise<{ 
                 <button
                   onClick={() => {
                     setActionMenuOpen(false);
-                    void handleUpdateStatus("VERIFIED");
+                    void handleUpdateStatus("QUALIFIED");
                   }}
                   className="flex w-full min-h-[40px] items-center rounded-lg px-3 text-left text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted"
                 >
-                  Verify Practice
+                  Mark Qualified
                 </button>
                 <button
                   onClick={() => {
@@ -289,33 +339,24 @@ export default function AdminBusinessDetailPage({ params }: { params: Promise<{ 
                   <button
                     onClick={() => {
                       setActionMenuOpen(false);
-                      void handleUpdateStatus("CONVERTED");
+                      void handleMarkWon();
                     }}
                     className="flex w-full min-h-[40px] items-center rounded-lg px-3 text-left text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/10"
                   >
                     Mark Won
                   </button>
                 )}
-                {business.status !== "LOST" && (
+                {business.status !== "DISQUALIFIED" && (
                   <button
                     onClick={() => {
                       setActionMenuOpen(false);
-                      void handleUpdateStatus("LOST");
+                      void handleUpdateStatus("DISQUALIFIED");
                     }}
-                    className="flex w-full min-h-[40px] items-center rounded-lg px-3 text-left text-xs font-semibold text-muted-foreground transition-colors hover:bg-surface-muted"
+                    className="flex w-full min-h-[40px] items-center rounded-lg px-3 text-left text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
                   >
-                    Mark Lost
+                    Mark Disqualified
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setActionMenuOpen(false);
-                    void handleUpdateStatus("REJECTED");
-                  }}
-                  className="flex w-full min-h-[40px] items-center rounded-lg px-3 text-left text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
-                >
-                  Reject
-                </button>
               </div>
             )}
           </div>

@@ -151,6 +151,21 @@ model Business {
   firstDiscoveredAt DateTime?      @default(now())
   lastCheckedAt    DateTime?
 
+  // Acquisition attribution — captured once at creation from the anonymous visitor's
+  // first-touch cookie, never updated afterwards (last-touch lives per-event instead).
+  visitorId            String?
+  firstTouchSource     String?
+  firstTouchMedium     String?
+  firstTouchCampaign   String?
+  firstTouchContent    String?
+  firstTouchTerm       String?
+  firstTouchLandingPage String?
+  firstTouchReferrer   String?
+
+  // Manual revenue close-out — no billing/invoicing integration exists to derive this from.
+  dealValueCents   Int?
+  wonAt            DateTime?
+
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   contacts         Contact[]
@@ -165,6 +180,8 @@ model Business {
   @@index([city])
   @@index([normalizedDomain])
   @@index([createdAt])
+  @@index([visitorId])
+  @@index([firstTouchCampaign])
 }
 
 model Contact {
@@ -292,10 +309,26 @@ model EngagementEvent {
   userAgent      String?
   timestamp      DateTime      @default(now())
 
+  // Full-funnel attribution — added for the analytics tracking abstraction (lib/analytics.ts).
+  // All nullable/additive: pre-existing rows and call sites are unaffected.
+  eventId        String?       @unique // caller-generated UUID, for cross-client/GA4 dedupe
+  visitorId      String?       // anonymous cookie id — present on pre-lead website-funnel events
+  sessionId      String?
+  path           String?
+  referrer       String?
+  utmSource      String?       // last-touch snapshot in effect when this specific event fired
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  utmTerm        String?
+  properties     Json?         // allowlisted safe properties only — never PII, enforced in lib/analytics.ts
+
   @@index([emailMessageId])
   @@index([businessId])
   @@index([auditId])
   @@index([eventType])
+  @@index([visitorId])
+  @@index([utmCampaign])
 }
 
 model Appointment {

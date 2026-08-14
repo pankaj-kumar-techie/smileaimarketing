@@ -4,6 +4,7 @@ import { z } from "zod";
 import { normalizeDomain, normalizeName } from "@/lib/normalize";
 import { checkWebsite } from "@/lib/websiteCheck.server";
 import { analysisQueue } from "@/lib/queue";
+import { trackEvent, readVisitorCookies } from "@/lib/analytics";
 
 const inboundSchema = z.object({
   website: z.string().url(),
@@ -39,7 +40,12 @@ export async function POST(request: Request) {
       });
     }
 
+    const isNewBusiness = !business;
+
     if (!business) {
+      // First-touch attribution is captured once, here, at the moment this
+      // anonymous visitor becomes a named lead — never overwritten afterwards.
+      const { visitorId, firstTouch } = readVisitorCookies(request);
       business = await prisma.business.create({
         data: {
           name: clinicName,
@@ -52,6 +58,14 @@ export async function POST(request: Request) {
           status: "AUDITING",
           providerSource: "SELF_SERVE",
           lastCheckedAt: new Date(),
+          visitorId,
+          firstTouchSource: firstTouch?.source,
+          firstTouchMedium: firstTouch?.medium,
+          firstTouchCampaign: firstTouch?.campaign,
+          firstTouchContent: firstTouch?.content,
+          firstTouchTerm: firstTouch?.term,
+          firstTouchLandingPage: firstTouch?.landingPage,
+          firstTouchReferrer: firstTouch?.referrer,
         },
       });
     } else {
@@ -59,6 +73,10 @@ export async function POST(request: Request) {
         where: { id: business.id },
         data: { status: "AUDITING", lastCheckedAt: new Date() },
       });
+    }
+
+    if (isNewBusiness) {
+      await trackEvent({ eventName: "business_discovered", businessId: business.id });
     }
 
     // Create a pending Audit record

@@ -6,7 +6,7 @@ import { analyzeWebsite } from "@/lib/websiteAnalyzer";
 import { computeAuditScores } from "@/lib/auditScorer";
 import { findLocalMarketPosition } from "@/lib/discoveryProvider";
 import { pdfQueue } from "@/lib/queue";
-import { logEngagementEvent } from "@/lib/events";
+import { trackEvent } from "@/lib/analytics";
 
 const leadSchema = z.object({
   pendingAuditId: z.string(),
@@ -144,8 +144,17 @@ export async function POST(request: Request) {
       },
     });
 
-    await logEngagementEvent({
-      eventType: "audit_completed",
+    await trackEvent({
+      eventName: "audit_completed",
+      businessId: business.id,
+      auditId: audit.id,
+      properties: { score: scoreOutput.opportunityScore },
+    });
+
+    // The contact-unlock step is the real lead-generation moment — maps to
+    // GA4's generate_lead.
+    await trackEvent({
+      eventName: "report_unlock_complete",
       businessId: business.id,
       auditId: audit.id,
     });

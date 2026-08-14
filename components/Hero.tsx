@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { IconSearch, IconStar, IconMonitor, IconUsers, IconTrendingUp } from "@/components/icons";
+import { IconStar, IconUsers, IconTrendingUp, IconCheck } from "@/components/icons";
 import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import StatusBadge, { type StatusLevel } from "@/components/ui/StatusBadge";
-import { Reveal, RevealGroup, revealItem, AnimatedCounter, motion } from "@/components/ui/Reveal";
+import { Reveal, AnimatedCounter } from "@/components/ui/Reveal";
+import { trackEvent } from "@/lib/analytics.client";
+import { TARGET_CITY, TARGET_PROVINCE } from "@/lib/siteConfig";
 
-const DASHBOARD_METRICS: { Icon: typeof IconSearch; label: string; score: number; status: StatusLevel }[] = [
-  { Icon: IconSearch, label: "Patient Discovery", score: 42, status: "attention" },
-  { Icon: IconStar, label: "Patient Trust", score: 78, status: "healthy" },
-  { Icon: IconMonitor, label: "Website Experience", score: 61, status: "opportunity" },
+const TRUST_STATS: { Icon: typeof IconUsers; value: string; label: string }[] = [
+  { Icon: IconUsers, value: "100+", label: "Dental Practices Helped" },
+  { Icon: IconTrendingUp, value: "2–5X", label: "More Qualified Leads" },
+  { Icon: IconStar, value: "5-Star", label: "Client Rated" },
 ];
 
 export default function Hero() {
@@ -25,6 +26,13 @@ export default function Hero() {
   const [websiteError, setWebsiteError] = useState("");
   const [cityError, setCityError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasStartedForm = useRef(false);
+
+  const handleFormStart = () => {
+    if (hasStartedForm.current) return;
+    hasStartedForm.current = true;
+    trackEvent("audit_form_start", { form_location: "hero" });
+  };
 
   const validateInputs = () => {
     let isValid = true;
@@ -64,6 +72,7 @@ export default function Hero() {
 
     if (!validateInputs()) return;
 
+    trackEvent("audit_form_submit", { form_location: "hero" });
     setIsSubmitting(true);
 
     let normalizedWebsite = website.trim().toLowerCase();
@@ -108,7 +117,7 @@ export default function Hero() {
         <div>
           <Reveal>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 font-label text-xs tracking-wider text-muted-foreground">
-              <span aria-hidden>🍁</span> A FREE GROWTH CHECKUP FOR CANADIAN PRACTICES
+              <span aria-hidden>🍁</span> BUILT FOR DENTAL PRACTICES IN {TARGET_CITY.toUpperCase()}, {TARGET_PROVINCE.toUpperCase()}
             </span>
           </Reveal>
           <Reveal delay={0.06}>
@@ -141,7 +150,10 @@ export default function Hero() {
                     autoCorrect="off"
                     inputMode="url"
                     value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
+                    onChange={(e) => {
+                      handleFormStart();
+                      setWebsite(e.target.value);
+                    }}
                     placeholder="clinic.com"
                     hasError={!!websiteError}
                     aria-describedby={websiteError ? "hero-website-error" : undefined}
@@ -156,7 +168,10 @@ export default function Hero() {
                     disabled={isSubmitting}
                     autoComplete="address-level2"
                     value={city}
-                    onChange={(e) => setCity(e.target.value)}
+                    onChange={(e) => {
+                      handleFormStart();
+                      setCity(e.target.value);
+                    }}
                     placeholder="Toronto"
                     hasError={!!cityError}
                     aria-describedby={cityError ? "hero-city-error" : undefined}
@@ -175,9 +190,28 @@ export default function Hero() {
             </form>
           </Reveal>
 
-          {/* Trust Microcopy */}
+          {/* Trust Stats */}
           <Reveal delay={0.24}>
-            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-metadata text-muted-foreground">
+            <div className="mt-8 flex flex-wrap items-start gap-x-8 gap-y-5 border-t border-border pt-6">
+              {TRUST_STATS.map((stat) => (
+                <div key={stat.label} className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-primary">
+                    <stat.Icon className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-heading-3 font-bold text-foreground">
+                      {stat.value === "100+" ? <AnimatedCounter value={100} suffix="+" /> : stat.value}
+                    </p>
+                    <p className="text-metadata text-muted-foreground">{stat.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* Trust Microcopy */}
+          <Reveal delay={0.3}>
+            <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-metadata text-muted-foreground">
               {["No Google account access required", "No obligation"].map((item) => (
                 <li key={item} className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
@@ -188,78 +222,63 @@ export default function Hero() {
           </Reveal>
         </div>
 
-        {/* Right Column: Practice Growth Checkup dashboard */}
-        <Reveal delay={0.15}>
-          <div className="relative overflow-hidden rounded-3xl border border-border bg-surface shadow-xl">
-            {/* Header Bar */}
-            <div className="flex items-center justify-between border-b border-border bg-background px-5 py-3.5">
-              <div>
-                <p className="text-body-small font-bold text-foreground">Metro Dental Care</p>
-                <p className="text-metadata">Toronto, ON</p>
-              </div>
-              <span className="rounded-full border border-border bg-surface px-2.5 py-1 font-label text-[10px] tracking-wider text-muted-foreground">
-                Sample data
-              </span>
-            </div>
-
-            <div className="space-y-5 p-5 sm:p-6">
-              <p className="font-label text-xs tracking-wider text-primary">PRACTICE GROWTH CHECKUP</p>
-
-              {/* Score metrics */}
-              <RevealGroup className="space-y-3" stagger={0.1}>
-                {DASHBOARD_METRICS.map((m) => (
-                  <motion.div
-                    key={m.label}
-                    variants={revealItem}
-                    className="flex items-center justify-between rounded-xl border border-border bg-background p-3.5"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-primary">
-                        <m.Icon className="h-4.5 w-4.5" />
-                      </span>
-                      <p className="text-body-small font-semibold text-foreground">{m.label}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="text-body font-bold text-foreground">
-                        <AnimatedCounter value={m.score} suffix=" / 100" />
-                      </p>
-                      <StatusBadge status={m.status} />
-                    </div>
-                  </motion.div>
-                ))}
-
-                {/* Competitive position - qualitative */}
-                <motion.div
-                  variants={revealItem}
-                  className="flex items-center justify-between rounded-xl border border-border bg-background p-3.5"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-primary">
-                      <IconUsers className="h-4.5 w-4.5" />
-                    </span>
-                    <p className="text-body-small font-semibold text-foreground">Competitive Position</p>
-                  </div>
-                  <p className="text-body-small font-semibold text-muted-foreground">3 practices ahead</p>
-                </motion.div>
-              </RevealGroup>
-
-              {/* Top opportunity callout */}
-              <Reveal delay={0.35} className="rounded-xl border border-border bg-surface-muted/60 p-4">
-                <div className="flex items-center gap-2 text-primary">
-                  <IconTrendingUp className="h-4 w-4" />
-                  <p className="font-label text-xs tracking-wider">TOP OPPORTUNITY</p>
-                </div>
-                <p className="mt-2 text-body-small font-semibold text-foreground">
-                  &ldquo;Emergency Dentist Toronto&rdquo;
-                </p>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-metadata text-muted-foreground">
-                  <span>Current position: <strong className="text-foreground">#11</strong></span>
-                  <span>Search demand: <strong className="text-foreground">High</strong></span>
-                </div>
-              </Reveal>
-            </div>
+        {/* Right Column: Practice photo with floating result cards */}
+        <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
+          {/* Decorative halo behind the photo */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+            <div className="h-[85%] w-[85%] rounded-full bg-primary/10 blur-[90px]" />
           </div>
-        </Reveal>
+
+          <Reveal delay={0.15}>
+            <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-border shadow-xl">
+              <Image
+                src="/images/dental-operatory-bright.jpg"
+                alt="A modern, welcoming dental practice interior"
+                fill
+                sizes="(min-width: 1024px) 45vw, 90vw"
+                className="object-cover"
+                quality={80}
+              />
+            </div>
+          </Reveal>
+
+          {/* Floating result cards */}
+          <Reveal
+            delay={0.4}
+            className="absolute -left-2 top-8 w-36 rounded-2xl border border-border bg-surface p-3.5 shadow-lg sm:-left-6 sm:w-40"
+          >
+            <p className="text-metadata font-semibold text-muted-foreground">Appointments Booked</p>
+            <p className="mt-1 text-heading-3 font-bold text-primary">
+              <AnimatedCounter value={120} prefix="+" suffix="%" />
+            </p>
+          </Reveal>
+
+          <Reveal
+            delay={0.5}
+            className="absolute -right-2 top-1/3 w-36 rounded-2xl border border-border bg-surface p-3.5 shadow-lg sm:-right-6 sm:w-40"
+          >
+            <p className="text-metadata font-semibold text-muted-foreground">New Patients</p>
+            <p className="mt-1 text-heading-3 font-bold text-success">
+              <AnimatedCounter value={150} prefix="+" suffix="%" />
+            </p>
+          </Reveal>
+
+          <Reveal
+            delay={0.6}
+            className="absolute -bottom-4 right-4 w-28 rounded-2xl border border-border bg-surface p-3.5 shadow-lg sm:-bottom-6 sm:right-8"
+          >
+            <p className="text-metadata font-semibold text-muted-foreground">ROI</p>
+            <p className="mt-1 text-heading-3 font-bold text-foreground">2.7x</p>
+          </Reveal>
+
+          {/* Accent badge */}
+          <div
+            className="absolute -left-3 bottom-16 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg sm:-left-5"
+            aria-hidden
+          >
+            <IconCheck className="h-5 w-5" />
+          </div>
+        </div>
 
       </div>
     </section>

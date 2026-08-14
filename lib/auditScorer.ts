@@ -200,7 +200,7 @@ export function computeAuditScores(params: {
   // When none are available, this stays empty rather than inventing business names.
   const competitors = params.realCompetitors || [];
 
-  const summaryText = `${businessName} has an Opportunity Score of ${opportunityScore}/100 in ${city}. In plain terms: patients are searching for a dentist nearby right now, and depending on what we found, some are finding you first — and some are finding someone else instead. This report shows exactly where you're winning, where nearby practices are quietly taking patients that could be yours, and the two or three fixes that will make the biggest difference first.`;
+  const summaryText = `${businessName}'s Opportunity Score is ${opportunityScore}/100 in ${city} — patients searching nearby right now are finding you for some of what matters, and finding someone else for the rest. Below is exactly where each stands, and the two or three fixes worth prioritizing first.`;
 
   return {
     opportunityScore,

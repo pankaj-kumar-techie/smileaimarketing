@@ -31,6 +31,11 @@ const strongSecret = (label: string) =>
 
 const optionalUrl = z.string().url().optional().or(z.literal("").transform(() => undefined));
 const optionalNonEmpty = z.string().min(1).optional().or(z.literal("").transform(() => undefined));
+const boolFlag = (defaultValue: boolean) =>
+  z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? defaultValue : v === "true"));
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -93,6 +98,13 @@ const envSchema = z.object({
   CLOUDFLARE_R2_SECRET_ACCESS_KEY: optionalNonEmpty,
   CLOUDFLARE_R2_BUCKET: optionalNonEmpty,
   CLOUDFLARE_R2_PUBLIC_URL: optionalUrl,
+
+  // Analytics — internal event tracking is on by default; GA4 forwarding is
+  // opt-in and only activates once both GA4 vars are supplied.
+  ANALYTICS_ENABLED: boolFlag(true),
+  ANALYTICS_DEBUG: boolFlag(false),
+  GA4_MEASUREMENT_ID: optionalNonEmpty,
+  GA4_API_SECRET: optionalNonEmpty,
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -149,6 +161,7 @@ export const integrationStatus = {
       env.CLOUDFLARE_R2_BUCKET
   ),
   basicAuth: Boolean(env.BASIC_AUTH_USERNAME && env.BASIC_AUTH_PASSWORD),
+  ga4: Boolean(env.GA4_MEASUREMENT_ID && env.GA4_API_SECRET),
 } as const;
 
 export type IntegrationName = keyof typeof integrationStatus;

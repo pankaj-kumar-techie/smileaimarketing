@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
 import { buildAuditNarrative } from "@/lib/auditNarrative";
+import { trackEvent } from "@/lib/analytics";
 
 export async function GET(
   request: Request,
@@ -33,6 +35,11 @@ export async function GET(
         category: true,
         status: true,
         opportunityScore: true,
+        dealValueCents: true,
+        wonAt: true,
+        firstTouchSource: true,
+        firstTouchMedium: true,
+        firstTouchCampaign: true,
         providerSource: true,
         rating: true,
         reviewCount: true,
@@ -78,6 +85,27 @@ export async function GET(
   }
 }
 
+const BUSINESS_STATUSES = [
+  "DISCOVERED",
+  "QUALIFIED",
+  "AUDITING",
+  "AUDITED",
+  "OUTREACH_PENDING",
+  "OUTREACH_ACTIVE",
+  "CONVERTED",
+  "DISQUALIFIED",
+] as const;
+
+const patchSchema = z.object({
+  status: z.enum(BUSINESS_STATUSES).optional(),
+  // Marking a business "won" is separate from `status` — it's the revenue
+  // close-out step (docs/analytics-measurement-plan.md), settable regardless
+  // of the lead-lifecycle status since there's no billing integration to
+  // derive it from.
+  markWon: z.boolean().optional(),
+  dealValueCents: z.number().int().positive().optional(),
+});
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -90,13 +118,34 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
+    const result = patchSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
+    }
+    const { status, markWon, dealValueCents } = result.data;
 
     const updated = await prisma.business.update({
       where: { id },
       data: {
-        status: body.status,
+        ...(status ? { status } : {}),
+        ...(markWon ? { wonAt: new Date() } : {}),
+        ...(dealValueCents !== undefined ? { dealValueCents } : {}),
       },
     });
+
+    if (status === "QUALIFIED") {
+      await trackEvent({ eventName: "business_qualified", businessId: id });
+    } else if (status === "DISQUALIFIED") {
+      await trackEvent({ eventName: "business_disqualified", businessId: id });
+      await trackEvent({ eventName: "lead_lost", businessId: id });
+    }
+    if (markWon) {
+      await trackEvent({
+        eventName: "lead_won",
+        businessId: id,
+        properties: dealValueCents !== undefined ? { deal_value_cents: dealValueCents } : undefined,
+      });
+    }
 
     return NextResponse.json({ business: updated });
   } catch (error) {
